@@ -4,14 +4,17 @@ import {
   EnvelopeIcon,
   PhoneIcon,
   BuildingOfficeIcon,
-  ArrowRightIcon
+  ArrowRightIcon,
+  LockClosedIcon
 } from '@heroicons/react/24/outline';
 
 const SellerLoginPage = ({ onLogin }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phoneNumber: ''
+    phoneNumber: '',
+    password: '',
+    confirmPassword: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -54,6 +57,18 @@ const SellerLoginPage = ({ onLogin }) => {
       newErrors.phoneNumber = 'Please enter a valid phone number';
     }
     
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
+    }
+    
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = 'Please confirm your password';
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -64,11 +79,19 @@ const SellerLoginPage = ({ onLogin }) => {
     if (validateForm()) {
       setIsLoading(true);
       
+      // Prepare data for API according to schema
+      const apiData = {
+        name: formData.name,
+        email: formData.email,
+        hashed_password: formData.password,
+        phone: formData.phoneNumber
+      };
+
       // Simulate API call delay
       setTimeout(() => {
         setIsLoading(false);
         // Pass seller data to parent component to handle navigation
-        onLogin(formData);
+        onLogin(apiData);
       }, 1000);
     }
   };
@@ -160,6 +183,52 @@ const SellerLoginPage = ({ onLogin }) => {
               />
               {errors.phoneNumber && (
                 <p className="mt-1 text-sm text-red-600">{errors.phoneNumber}</p>
+              )}
+            </div>
+
+            {/* Password Field */}
+            <div>
+              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                <LockClosedIcon className="w-4 h-4 inline mr-2" />
+                Password
+              </label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                className={`w-full px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 ${
+                  errors.password ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Enter your password"
+                disabled={isLoading}
+              />
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+              )}
+            </div>
+
+            {/* Confirm Password Field */}
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2">
+                <LockClosedIcon className="w-4 h-4 inline mr-2" />
+                Confirm Password
+              </label>
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                className={`w-full px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 ${
+                  errors.confirmPassword ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Confirm your password"
+                disabled={isLoading}
+              />
+              {errors.confirmPassword && (
+                <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>
               )}
             </div>
 

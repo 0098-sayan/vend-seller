@@ -13,7 +13,7 @@ const App = () => {
   const [error, setError] = useState(null);
 
   // API Base URL - Update this to your backend URL
-  const API_BASE_URL = 'https://vend-sell.onrender.com/docs';
+  const API_BASE_URL = 'https://vend-sell.onrender.com/';
 
   // Check for existing session on app load
   useEffect(() => {
@@ -27,7 +27,7 @@ const App = () => {
     if (token && sellerId) {
       try {
         setLoading(true);
-        const response = await fetch(`${API_BASE_URL}/seller/${sellerId}`, {
+        const response = await fetch(`${API_BASE_URL}seller/${sellerId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -36,17 +36,22 @@ const App = () => {
 
         if (response.ok) {
           const data = await response.json();
-          setSellerData(data.seller);
-          setFactoryData(data.factory);
-          setProductData(data.products || []);
-          setCurrentStep('profile');
+          console.log('Session check response:', data); // Debug log
+          if (data.seller) {
+            setSellerData(data.seller);
+            setFactoryData(data.factory || null);
+            setProductData(data.products || []);
+            setCurrentStep('profile');
+          } else {
+            throw new Error('Invalid response structure: missing seller data');
+          }
         } else {
-          // Invalid session, clear storage
+          console.warn('Session check failed with status:', response.status);
           localStorage.removeItem('authToken');
           localStorage.removeItem('sellerId');
         }
       } catch (error) {
-        console.error('Session check failed:', error);
+        console.error('Session check failed:', error.message);
         localStorage.removeItem('authToken');
         localStorage.removeItem('sellerId');
       } finally {
@@ -60,7 +65,7 @@ const App = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_BASE_URL}/seller/login`, {
+      const response = await fetch(`${API_BASE_URL}seller/create/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -69,33 +74,35 @@ const App = () => {
       });
 
       const data = await response.json();
+      console.log('Login response:', { status: response.status, data }); // Debug log
 
-      if (response.ok) {
-        // Store authentication data
-        localStorage.setItem('authToken', data.token);
-        localStorage.setItem('sellerId', data.seller.id);
-        
-        setSellerData(data.seller);
-        
-        // Check if seller has factory details
-        if (data.factory) {
-          setFactoryData(data.factory);
-          // Check if seller has products
-          if (data.products && data.products.length > 0) {
-            setProductData(data.products);
-            setCurrentStep('profile');
+      if (response.ok || response.status === 201) {
+        // Check if response contains expected data
+        if (data.token && data.seller?.id) {
+          localStorage.setItem('authToken', data.token);
+          localStorage.setItem('sellerId', data.seller.id);
+          setSellerData(data.seller);
+          
+          if (data.factory) {
+            setFactoryData(data.factory);
+            if (data.products && data.products.length > 0) {
+              setProductData(data.products);
+              setCurrentStep('profile');
+            } else {
+              setCurrentStep('products');
+            }
           } else {
-            setCurrentStep('products');
+            setCurrentStep('factory');
           }
         } else {
-          setCurrentStep('factory');
+          setError('Invalid response: missing token or seller ID');
         }
       } else {
-        setError(data.message || 'Login failed');
+        setError(data.message || `Login failed with status ${response.status}`);
       }
     } catch (error) {
-      console.error('Login error:', error);
-      setError('Network error. Please try again.');
+      console.error('Login error:', error.message);
+      setError(error.message || 'Network error during login. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -107,7 +114,7 @@ const App = () => {
       setError(null);
 
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/factory`, {
+      const response = await fetch(`${API_BASE_URL}factory`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -120,16 +127,21 @@ const App = () => {
       });
 
       const data = await response.json();
+      console.log('Factory response:', { status: response.status, data }); // Debug log
 
-      if (response.ok) {
-        setFactoryData(data.factory);
-        setCurrentStep('products');
+      if (response.ok || response.status === 201) {
+        if (data.factory) {
+          setFactoryData(data.factory);
+          setCurrentStep('products');
+        } else {
+          setError('Invalid response: missing factory data');
+        }
       } else {
-        setError(data.message || 'Failed to save factory details');
+        setError(data.message || `Failed to save factory details: status ${response.status}`);
       }
     } catch (error) {
-      console.error('Factory save error:', error);
-      setError('Network error. Please try again.');
+      console.error('Factory save error:', error.message);
+      setError(error.message || 'Network error during factory save. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -143,7 +155,6 @@ const App = () => {
       const token = localStorage.getItem('authToken');
       const formData = new FormData();
       
-      // Append product data
       Object.keys(product).forEach(key => {
         if (key === 'productImage' && product[key]) {
           formData.append('productImage', product[key]);
@@ -155,7 +166,7 @@ const App = () => {
       formData.append('sellerId', sellerData.id);
       formData.append('factoryId', factoryData.id);
 
-      const response = await fetch(`${API_BASE_URL}/products`, {
+      const response = await fetch(`${API_BASE_URL}products`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -164,16 +175,21 @@ const App = () => {
       });
 
       const data = await response.json();
+      console.log('Product response:', { status: response.status, data }); // Debug log
 
-      if (response.ok) {
-        setProductData(prev => [...prev, data.product]);
-        setCurrentStep('profile');
+      if (response.ok || response.status === 201) {
+        if (data.product) {
+          setProductData(prev => [...prev, data.product]);
+          setCurrentStep('profile');
+        } else {
+          setError('Invalid response: missing product data');
+        }
       } else {
-        setError(data.message || 'Failed to save product');
+        setError(data.message || `Failed to save product: status ${response.status}`);
       }
     } catch (error) {
-      console.error('Product save error:', error);
-      setError('Network error. Please try again.');
+      console.error('Product save error:', error.message);
+      setError(error.message || 'Network error during product save. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -188,8 +204,7 @@ const App = () => {
       try {
         const token = localStorage.getItem('authToken');
         
-        // Call backend logout endpoint
-        await fetch(`${API_BASE_URL}/seller/logout`, {
+        await fetch(`${API_BASE_URL}seller/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -197,9 +212,8 @@ const App = () => {
           }
         });
       } catch (error) {
-        console.error('Logout error:', error);
+        console.error('Logout error:', error.message);
       } finally {
-        // Clear local storage and reset state
         localStorage.removeItem('authToken');
         localStorage.removeItem('sellerId');
         setSellerData(null);
@@ -240,9 +254,17 @@ const App = () => {
               <p className="text-gray-600 mb-4">{error}</p>
               <button
                 onClick={() => {
-                  setError(null);
+                  setError(null); // Clear error
                   if (currentStep === 'login') {
-                    window.location.reload();
+                    setCurrentStep('login');
+                  } else if (currentStep === 'factory' && sellerData) {
+                    setCurrentStep('factory');
+                  } else if (currentStep === 'products' && factoryData) {
+                    setCurrentStep('products');
+                  } else if (currentStep === 'profile' && sellerData) {
+                    setCurrentStep('profile');
+                  } else {
+                    window.location.reload(); // Fallback to reload if state is inconsistent
                   }
                 }}
                 className="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200"
